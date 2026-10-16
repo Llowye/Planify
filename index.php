@@ -7,7 +7,7 @@
  *             - Searching: Linear Search & Binary Search
  *             - Struktur : Stack (LIFO) & Queue (FIFO)
  *             - Profiling waktu eksekusi + optimasi sederhana
- * Penulis   : Annisa Putri
+ * Penulis   : Kelompok 6
  * Versi     : 1.0
  * Catatan perubahan:
  *   v1.0 (16 Okt 2026) - Versi awal
