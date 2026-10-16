@@ -3,193 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Planify - Tugas-3</title>
+  <title>To-Do List Array</title>
   <style>
-    body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 16px; }
-    .app { background: white; width: 100%; max-width: 420px; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
-    h1 { margin-top: 0; text-align: center; font-size: 22px; }
+    body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+    .app { background: white; width: 100%; max-width: 440px; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+    h1 { margin-top: 0; text-align: center; }
     .baris { display: flex; gap: 8px; margin-bottom: 8px; }
-    input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; min-width: 0; }
+    input[type=text], select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; min-width: 0; }
     button { padding: 10px 14px; border: none; border-radius: 8px; background: #4f46e5; color: white; font-size: 16px; cursor: pointer; }
     ul { list-style: none; padding: 0; }
     li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
-    .teks { background: none; color: #222; text-align: left; flex: 1; padding: 0; }
+    li .no { color: #999; width: 22px; }
+    li .teks { flex: 1; }
+    li input[type=checkbox] { width: 20px; height: 20px; cursor: pointer; }
     li.selesai .teks { text-decoration: line-through; color: #999; }
-    li.cocok { background: #fef3c7; }
-    .hapus { background: #ef4444; padding: 4px 10px; }
-    .urut { background: #059669; width: 100%; margin-bottom: 8px; }
-    .pesan { background: #e0e7ff; padding: 8px; border-radius: 8px; font-size: 14px; }
+    li button { background: #ef4444; padding: 4px 10px; }
     .info { text-align: center; color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
-<div class="app">
-  <h1>Planify - To-Do List</h1>
+  <div class="app">
+    <h1>📝 To-Do List Array</h1>
 
-  <div class="baris">
-    <input type="text" id="teksBaru" placeholder="Tulis tugas baru..." onkeydown="if (event.key === 'Enter') { tambah(); }">
-    <button onclick="tambah()">Tambah</button>
+    <div class="baris">
+      <input type="text" id="inputTugas" placeholder="Tulis tugas baru...">
+      <button id="tombolTambah">Tambah</button>
+    </div>
+    <div class="baris">
+      <input type="text" id="inputCari" placeholder="🔍 Cari tugas...">
+      <select id="pilihUrut">
+        <option value="lama">Terlama dulu</option>
+        <option value="baru">Terbaru dulu</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+        <option value="belum">Belum selesai dulu</option>
+      </select>
+    </div>
+
+    <ul id="daftar"></ul>
+    <p class="info" id="info"></p>
   </div>
 
-  <div class="baris">
-    <input type="text" id="kataCari" placeholder="Cari tugas...">
-    <button onclick="cari()">Cari</button>
-  </div>
+  <script>
+    // ===== BAGIAN 1: DATA (struktur data ARRAY) =====
+    // Semua tugas disimpan dalam satu array. Tiap tugas = objek { teks, selesai }.
+    // localStorage = penyimpanan browser, supaya data tidak hilang saat di-refresh.
+    let tugas = JSON.parse(localStorage.getItem("tugas")) || [];
 
-  <button class="urut" onclick="urutkan()">Urutkan A-Z (Bubble Sort)</button>
+    const inputTugas = document.getElementById("inputTugas");
+    const inputCari  = document.getElementById("inputCari");
+    const pilihUrut  = document.getElementById("pilihUrut");
+    const daftar     = document.getElementById("daftar");
+    const info       = document.getElementById("info");
 
-  <p class="pesan" id="pesan" style="display:none"></p>
-  <ul id="daftar"></ul>
-  <p class="info" id="info"></p>
-</div>
+    function simpan() {
+      localStorage.setItem("tugas", JSON.stringify(tugas));
+    }
 
-<script>
-/**
- * ============================================================
- * File      : tugas3.html
- * Deskripsi : To-Do List (Planify) - Tugas-3 Algoritma & Struktur Data
- *             - Bubble Sort  : mengurutkan tugas A-Z
- *             - Linear Search: mencari tugas berdasarkan kata kunci
- *             - Profiling    : mengukur waktu eksekusi (ms)
- * Penulis   : Kelompok 6
- * Versi     : 1.0
- * Catatan perubahan:
- *   v1.0 (16 Okt 2026) - Versi awal
- * ============================================================
- */
+    // ===== BAGIAN 2: SORTING dengan BUBBLE SORT =====
+    // Aturan: apakah A harus berada SETELAH B? (true = tukar posisi)
+    function harusTukar(a, b, urut) {
+      if (urut === "az")    return a.teks.toLowerCase() > b.teks.toLowerCase();
+      if (urut === "za")    return a.teks.toLowerCase() < b.teks.toLowerCase();
+      if (urut === "belum") return a.selesai && !b.selesai;
+      if (urut === "baru")  return a.id < b.id;
+      return a.id > b.id;                                  // "lama"
+    }
 
-var tugas = [];       // daftar tugas: setiap item berisi teks dan status selesai
-var cariIndeks = [];  // indeks tugas yang cocok dengan hasil pencarian
-
-/**
- * Bubble Sort: bandingkan 2 tugas bersebelahan, tukar kalau salah urutan.
- * Return: array baru yang sudah terurut A-Z.
- */
-function bubbleSort(data) {
-  var arr = data.slice();
-  for (var i = 0; i < arr.length - 1; i++) {
-    for (var j = 0; j < arr.length - i - 1; j++) {
-      if (arr[j].teks.toLowerCase() > arr[j + 1].teks.toLowerCase()) {
-        var temp = arr[j];
-        arr[j] = arr[j + 1];
-        arr[j + 1] = temp;
+    function urutkan(arr, urut) {
+      const n = arr.length;
+      for (let i = 0; i < n - 1; i++) {                    // ulangi n-1 putaran
+        for (let j = 0; j < n - i - 1; j++) {              // bandingkan pasangan bertetangga
+          if (harusTukar(arr[j], arr[j + 1], urut)) {
+            const sementara = arr[j];                      // tukar lewat variabel sementara
+            arr[j] = arr[j + 1];
+            arr[j + 1] = sementara;
+          }
+        }
       }
+      return arr;
     }
-  }
-  return arr;
-}
 
-/**
- * Linear Search: cek tugas satu per satu dari depan sampai akhir.
- * Return: array indeks tugas yang teksnya mengandung kata kunci.
- */
-function linearSearch(data, kata) {
-  var hasil = [];
-  for (var i = 0; i < data.length; i++) {
-    if (data[i].teks.toLowerCase().indexOf(kata.toLowerCase()) !== -1) {
-      hasil.push(i);
+    // ===== BAGIAN 3: TAMPILKAN = searching + sorting + traversal =====
+    function tampilkan() {
+      const cari = inputCari.value.trim().toLowerCase();
+
+      // SEARCHING (linear search): cek tugas satu per satu dari awal sampai akhir.
+      // "id" menyimpan posisi ASLI di array tugas, supaya setelah diurutkan,
+      // centang/hapus tetap mengenai tugas yang benar.
+      let hasil = [];
+      tugas.forEach(function (t, i) {                      // TRAVERSAL #1: forEach
+        if (cari === "" || t.teks.toLowerCase().includes(cari)) {
+          hasil.push({ id: i, teks: t.teks, selesai: t.selesai });
+        }
+      });
+
+      hasil = urutkan(hasil, pilihUrut.value);             // SORTING
+
+      daftar.innerHTML = "";
+      for (let i = 0; i < hasil.length; i++) {             // TRAVERSAL #2: for dengan indeks
+        const t = hasil[i];
+        const li = document.createElement("li");
+        if (t.selesai) li.classList.add("selesai");
+
+        const no = document.createElement("span");
+        no.className = "no";
+        no.textContent = (i + 1) + ".";
+
+        const centang = document.createElement("input");
+        centang.type = "checkbox";
+        centang.checked = t.selesai;
+        centang.onchange = function () { ubahStatus(t.id); };
+
+        const teks = document.createElement("span");
+        teks.className = "teks";
+        teks.textContent = t.teks;                         // textContent = aman dari kode jahat
+
+        const hapus = document.createElement("button");
+        hapus.textContent = "✕";
+        hapus.onclick = function () { hapusTugas(t.id); };
+
+        li.append(no, centang, teks, hapus);
+        daftar.appendChild(li);
+      }
+
+      let selesai = 0;                                     // TRAVERSAL #3: hitung statistik
+      for (const t of tugas) { if (t.selesai) selesai++; }
+
+      if (tugas.length === 0) info.textContent = "Belum ada tugas. Yuk tambah!";
+      else if (hasil.length === 0) info.textContent = 'Tidak ada tugas yang cocok dengan "' + inputCari.value.trim() + '".';
+      else info.textContent = "Menampilkan " + hasil.length + " dari " + tugas.length + " tugas · " + selesai + " selesai";
     }
-  }
-  return hasil;
-}
 
-/** Menampilkan pesan di bawah tombol urutkan. */
-function tampilPesan(teks) {
-  var el = document.getElementById("pesan");
-  el.textContent = teks;
-  el.style.display = teks === "" ? "none" : "block";
-}
+    // ===== BAGIAN 4: AKSI (tambah / ubah / hapus) =====
+    function tambahTugas() {
+      const teks = inputTugas.value.trim();
+      if (teks === "") return;
+      tugas.push({ teks: teks, selesai: false });          // tambah di ujung array
+      inputTugas.value = "";
+      simpan();
+      tampilkan();
+    }
 
-/** Menambah tugas baru ke akhir daftar. */
-function tambah() {
-  var input = document.getElementById("teksBaru");
-  var teks = input.value.trim();
-  if (teks === "") {
-    return;
-  }
-  tugas.push({ teks: teks, selesai: false });
-  input.value = "";
-  cariIndeks = [];
-  tampilPesan("");
-  tampilkan();
-}
+    function ubahStatus(id) {
+      tugas[id].selesai = !tugas[id].selesai;              // balik true/false
+      simpan();
+      tampilkan();
+    }
 
-/** Membalik status selesai/belum pada tugas ke-i. */
-function ubah(i) {
-  tugas[i].selesai = !tugas[i].selesai;
-  tampilkan();
-}
+    function hapusTugas(id) {
+      tugas.splice(id, 1);                                 // buang 1 item di posisi id
+      simpan();
+      tampilkan();
+    }
 
-/** Menghapus tugas ke-i dari daftar. */
-function hapus(i) {
-  tugas.splice(i, 1);
-  cariIndeks = [];
-  tampilkan();
-}
+    // ===== BAGIAN 5: EVENT (hubungkan aksi pengguna dengan fungsi) =====
+    document.getElementById("tombolTambah").addEventListener("click", tambahTugas);
+    inputTugas.addEventListener("keydown", function (e) { if (e.key === "Enter") tambahTugas(); });
+    inputCari.addEventListener("input", tampilkan);        // mengetik di kotak cari = hasil langsung berubah
+    pilihUrut.addEventListener("change", tampilkan);
 
-/** Mengurutkan tugas dengan Bubble Sort dan mengukur waktunya. */
-function urutkan() {
-  var mulai = performance.now();
-  tugas = bubbleSort(tugas);
-  var selesai = performance.now();
-  cariIndeks = [];
-  tampilPesan("Diurutkan A-Z pakai Bubble Sort. Waktu eksekusi: " + (selesai - mulai).toFixed(4) + " ms");
-  tampilkan();
-}
-
-/** Mencari tugas dengan Linear Search dan mengukur waktunya. */
-function cari() {
-  var kata = document.getElementById("kataCari").value.trim();
-  if (kata === "") {
-    tampilPesan("Isi kata kunci dulu ya.");
-    return;
-  }
-  var mulai = performance.now();
-  cariIndeks = linearSearch(tugas, kata);
-  var selesai = performance.now();
-  tampilPesan(cariIndeks.length + " tugas ditemukan lewat Linear Search. Waktu eksekusi: " + (selesai - mulai).toFixed(4) + " ms");
-  tampilkan();
-}
-
-/** Membuat satu baris <li> untuk tugas ke-i. */
-function buatItem(i) {
-  var li = document.createElement("li");
-  var kelas = "";
-  if (tugas[i].selesai) {
-    kelas = kelas + "selesai ";
-  }
-  if (cariIndeks.indexOf(i) !== -1) {
-    kelas = kelas + "cocok";
-  }
-  li.className = kelas;
-
-  var tombolTeks = document.createElement("button");
-  tombolTeks.className = "teks";
-  tombolTeks.textContent = tugas[i].teks;
-  tombolTeks.onclick = function () { ubah(i); };
-
-  var tombolHapus = document.createElement("button");
-  tombolHapus.className = "hapus";
-  tombolHapus.textContent = "✕";
-  tombolHapus.onclick = function () { hapus(i); };
-
-  li.appendChild(tombolTeks);
-  li.appendChild(tombolHapus);
-  return li;
-}
-
-/** Menggambar ulang seluruh daftar tugas di layar. */
-function tampilkan() {
-  var ul = document.getElementById("daftar");
-  ul.innerHTML = "";
-  for (var i = 0; i < tugas.length; i++) {
-    ul.appendChild(buatItem(i));
-  }
-  document.getElementById("info").textContent =
-    tugas.length === 0 ? "Belum ada tugas. Yuk tambah!" : tugas.length + " tugas";
-}
-
-tampilkan();
-</script>
+    tampilkan();
+  </script>
 </body>
 </html>
