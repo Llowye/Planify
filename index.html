@@ -3,33 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tugas-3 Algoritma</title>
+  <title>Planify - Tugas-3</title>
   <style>
     body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 16px; }
     .app { background: white; width: 100%; max-width: 420px; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
     h1 { margin-top: 0; text-align: center; font-size: 22px; }
-    input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; margin-bottom: 8px; }
+    .baris { display: flex; gap: 8px; margin-bottom: 8px; }
+    input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; min-width: 0; }
     button { padding: 10px 14px; border: none; border-radius: 8px; background: #4f46e5; color: white; font-size: 16px; cursor: pointer; }
-    #hasil { margin-top: 16px; line-height: 1.6; }
+    ul { list-style: none; padding: 0; }
+    li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .teks { background: none; color: #222; text-align: left; flex: 1; padding: 0; }
+    li.selesai .teks { text-decoration: line-through; color: #999; }
+    li.cocok { background: #fef3c7; }
+    .hapus { background: #ef4444; padding: 4px 10px; }
+    .urut { background: #059669; width: 100%; margin-bottom: 8px; }
+    .pesan { background: #e0e7ff; padding: 8px; border-radius: 8px; font-size: 14px; }
+    .info { text-align: center; color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
 <div class="app">
-  <h1>Tugas-3 Algoritma</h1>
-  <input type="text" id="angka" placeholder="Angka dipisah koma, contoh: 5, 3, 8, 1, 9">
-  <input type="text" id="cari" placeholder="Angka yang dicari, contoh: 8">
-  <button onclick="proses()">Proses</button>
-  <div id="hasil"></div>
+  <h1>Planify - To-Do List</h1>
+
+  <div class="baris">
+    <input type="text" id="teksBaru" placeholder="Tulis tugas baru..." onkeydown="if (event.key === 'Enter') { tambah(); }">
+    <button onclick="tambah()">Tambah</button>
+  </div>
+
+  <div class="baris">
+    <input type="text" id="kataCari" placeholder="Cari tugas...">
+    <button onclick="cari()">Cari</button>
+  </div>
+
+  <button class="urut" onclick="urutkan()">Urutkan A-Z (Bubble Sort)</button>
+
+  <p class="pesan" id="pesan" style="display:none"></p>
+  <ul id="daftar"></ul>
+  <p class="info" id="info"></p>
 </div>
 
 <script>
 /**
  * ============================================================
  * File      : tugas3.html
- * Deskripsi : Tugas-3 Algoritma & Struktur Data
- *             - Bubble Sort (pengurutan)
- *             - Linear Search (pencarian)
- *             - Pengukuran waktu eksekusi (profiling)
+ * Deskripsi : To-Do List (Planify) - Tugas-3 Algoritma & Struktur Data
+ *             - Bubble Sort  : mengurutkan tugas A-Z
+ *             - Linear Search: mencari tugas berdasarkan kata kunci
+ *             - Profiling    : mengukur waktu eksekusi (ms)
  * Penulis   : Kelompok 6
  * Versi     : 1.0
  * Catatan perubahan:
@@ -37,15 +58,18 @@
  * ============================================================
  */
 
+var tugas = [];       // daftar tugas: setiap item berisi teks dan status selesai
+var cariIndeks = [];  // indeks tugas yang cocok dengan hasil pencarian
+
 /**
- * Bubble Sort: bandingkan 2 angka bersebelahan, tukar kalau salah urutan.
- * Return: array baru yang sudah terurut dari kecil ke besar.
+ * Bubble Sort: bandingkan 2 tugas bersebelahan, tukar kalau salah urutan.
+ * Return: array baru yang sudah terurut A-Z.
  */
 function bubbleSort(data) {
   var arr = data.slice();
   for (var i = 0; i < arr.length - 1; i++) {
     for (var j = 0; j < arr.length - i - 1; j++) {
-      if (arr[j] > arr[j + 1]) {
+      if (arr[j].teks.toLowerCase() > arr[j + 1].teks.toLowerCase()) {
         var temp = arr[j];
         arr[j] = arr[j + 1];
         arr[j + 1] = temp;
@@ -56,49 +80,116 @@ function bubbleSort(data) {
 }
 
 /**
- * Linear Search: cek satu per satu dari depan sampai ketemu.
- * Return: indeks angka yang dicari, atau -1 kalau tidak ada.
+ * Linear Search: cek tugas satu per satu dari depan sampai akhir.
+ * Return: array indeks tugas yang teksnya mengandung kata kunci.
  */
-function linearSearch(data, cari) {
+function linearSearch(data, kata) {
+  var hasil = [];
   for (var i = 0; i < data.length; i++) {
-    if (data[i] === cari) {
-      return i;
+    if (data[i].teks.toLowerCase().indexOf(kata.toLowerCase()) !== -1) {
+      hasil.push(i);
     }
   }
-  return -1;
+  return hasil;
 }
 
-/**
- * Fungsi utama: dipanggil saat tombol Proses diklik.
- * Mengurutkan angka, mengukur waktunya, lalu mencari angka.
- */
-function proses() {
-  var teks = document.getElementById("angka").value;
-  var cari = Number(document.getElementById("cari").value);
+/** Menampilkan pesan di bawah tombol urutkan. */
+function tampilPesan(teks) {
+  var el = document.getElementById("pesan");
+  el.textContent = teks;
+  el.style.display = teks === "" ? "none" : "block";
+}
 
-  var data = teks.split(",").map(Number).filter(function (x) {
-    return !isNaN(x);
-  });
-
-  if (teks.trim() === "" || data.length === 0) {
-    document.getElementById("hasil").innerHTML = "Isi angka dulu ya, pisahkan pakai koma.";
+/** Menambah tugas baru ke akhir daftar. */
+function tambah() {
+  var input = document.getElementById("teksBaru");
+  var teks = input.value.trim();
+  if (teks === "") {
     return;
   }
-
-  var mulai = performance.now();
-  var terurut = bubbleSort(data);
-  var selesai = performance.now();
-  var waktu = (selesai - mulai).toFixed(4);
-
-  var posisi = linearSearch(data, cari);
-  var infoCari = posisi === -1 ? "tidak ketemu" : "ketemu di indeks " + posisi;
-
-  document.getElementById("hasil").innerHTML =
-    "<b>Data asli:</b> " + data.join(", ") + "<br>" +
-    "<b>Hasil Bubble Sort:</b> " + terurut.join(", ") + "<br>" +
-    "<b>Waktu eksekusi:</b> " + waktu + " ms<br>" +
-    "<b>Linear Search angka " + cari + ":</b> " + infoCari;
+  tugas.push({ teks: teks, selesai: false });
+  input.value = "";
+  cariIndeks = [];
+  tampilPesan("");
+  tampilkan();
 }
+
+/** Membalik status selesai/belum pada tugas ke-i. */
+function ubah(i) {
+  tugas[i].selesai = !tugas[i].selesai;
+  tampilkan();
+}
+
+/** Menghapus tugas ke-i dari daftar. */
+function hapus(i) {
+  tugas.splice(i, 1);
+  cariIndeks = [];
+  tampilkan();
+}
+
+/** Mengurutkan tugas dengan Bubble Sort dan mengukur waktunya. */
+function urutkan() {
+  var mulai = performance.now();
+  tugas = bubbleSort(tugas);
+  var selesai = performance.now();
+  cariIndeks = [];
+  tampilPesan("Diurutkan A-Z pakai Bubble Sort. Waktu eksekusi: " + (selesai - mulai).toFixed(4) + " ms");
+  tampilkan();
+}
+
+/** Mencari tugas dengan Linear Search dan mengukur waktunya. */
+function cari() {
+  var kata = document.getElementById("kataCari").value.trim();
+  if (kata === "") {
+    tampilPesan("Isi kata kunci dulu ya.");
+    return;
+  }
+  var mulai = performance.now();
+  cariIndeks = linearSearch(tugas, kata);
+  var selesai = performance.now();
+  tampilPesan(cariIndeks.length + " tugas ditemukan lewat Linear Search. Waktu eksekusi: " + (selesai - mulai).toFixed(4) + " ms");
+  tampilkan();
+}
+
+/** Membuat satu baris <li> untuk tugas ke-i. */
+function buatItem(i) {
+  var li = document.createElement("li");
+  var kelas = "";
+  if (tugas[i].selesai) {
+    kelas = kelas + "selesai ";
+  }
+  if (cariIndeks.indexOf(i) !== -1) {
+    kelas = kelas + "cocok";
+  }
+  li.className = kelas;
+
+  var tombolTeks = document.createElement("button");
+  tombolTeks.className = "teks";
+  tombolTeks.textContent = tugas[i].teks;
+  tombolTeks.onclick = function () { ubah(i); };
+
+  var tombolHapus = document.createElement("button");
+  tombolHapus.className = "hapus";
+  tombolHapus.textContent = "✕";
+  tombolHapus.onclick = function () { hapus(i); };
+
+  li.appendChild(tombolTeks);
+  li.appendChild(tombolHapus);
+  return li;
+}
+
+/** Menggambar ulang seluruh daftar tugas di layar. */
+function tampilkan() {
+  var ul = document.getElementById("daftar");
+  ul.innerHTML = "";
+  for (var i = 0; i < tugas.length; i++) {
+    ul.appendChild(buatItem(i));
+  }
+  document.getElementById("info").textContent =
+    tugas.length === 0 ? "Belum ada tugas. Yuk tambah!" : tugas.length + " tugas";
+}
+
+tampilkan();
 </script>
 </body>
 </html>
